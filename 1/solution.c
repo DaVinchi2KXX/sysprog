@@ -70,16 +70,21 @@ static bool is_exceeded_time_limit(struct coroutine_context *ctx) {
     return current_quant > ctx->time_limit_nsec ? true : false;
 }
 
-void insertion_sort(int *array, int size, struct coroutine_context *ctx) {
-    for (int i = 1; i < size; i++) {
-        int key = array[i];
-        int j = i - 1;
+void swap(int *a, int *b) {
+    int t = *a;
+    *a = *b;
+    *b = t;
+}
 
-        while (j >= 0 && array[j] > key) {
-            array[j + 1] = array[j];
-            j = j - 1;
+int partition(int *array, int left, int right, struct coroutine_context *ctx) {
+    int pivot = array[right];
+    int i = left - 1;
+
+    for (int j = left; j < right; j++) {
+        if (array[j] <= pivot) {
+            i++;
+            swap(&array[i], &array[j]);
         }
-        array[j + 1] = key;
 
         if (is_exceeded_time_limit(ctx)) {
             stop_timer(ctx);
@@ -88,7 +93,24 @@ void insertion_sort(int *array, int size, struct coroutine_context *ctx) {
             start_timer(ctx);
         }
     }
+
+    swap(&array[i + 1], &array[right]);
+    return (i + 1);
 }
+
+void quicksort_recursive(int *array, int left, int right, struct coroutine_context *ctx) {
+    if (left < right) {
+        int pivot_index = partition(array, left, right, ctx);
+        quicksort_recursive(array, left, pivot_index - 1, ctx);
+        quicksort_recursive(array, pivot_index + 1, right, ctx);
+    }
+}
+
+void quicksort(int *array, int size, struct coroutine_context *ctx) {
+    quicksort_recursive(array, 0, size - 1, ctx);
+}
+
+
 
 static int coroutine_function(void *context) {
     struct coro *current_coroutine = coro_this();
@@ -125,7 +147,7 @@ static int coroutine_function(void *context) {
 
         ++(*coroutine_context->current_file_index);
 
-        insertion_sort(array, size, coroutine_context);
+        quicksort(array, size, coroutine_context);
     }
 
     stop_timer(coroutine_context);

@@ -5,9 +5,17 @@
 
 #define TPOOL_ERR_NOT_IMPLEMENTED -1
 
+enum thread_task_state {
+    TASK_SHEDULED,
+    TASK_RUNNING,
+    TASK_FINISHED,
+    TASK_NOT_PUSHED,
+};
+
 struct thread_task {
     thread_task_f function;
     void *arg;
+    enum thread_task_state status;
 };
 
 struct thread_pool {
@@ -37,7 +45,7 @@ void *thread_function(void *arg) {
 }
 
 int thread_pool_new(int max_thread_count, struct thread_pool **pool) {
-    if (max_thread_count == 0 || pool == NULL)
+    if (max_thread_count == 0 || pool == NULL || max_thread_count > TPOOL_MAX_THREADS || max_thread_count < 0)
         return TPOOL_ERR_INVALID_ARGUMENT;
 
     *pool = (struct thread_pool *)malloc(sizeof(struct thread_pool));
@@ -57,19 +65,6 @@ int thread_pool_new(int max_thread_count, struct thread_pool **pool) {
     pthread_mutex_init(&(*pool)->lock, NULL);
     pthread_cond_init(&(*pool)->cond, NULL);
 
-    for (int i = 0; i < max_thread_count; ++i) {
-        if (pthread_create(&((*pool)->threads[i]), NULL, thread_function, *pool) != 0) {
-            for (int j = 0; j < i; ++j) {
-                pthread_cancel((*pool)->threads[j]);
-            }
-            pthread_mutex_destroy(&(*pool)->lock);
-            pthread_cond_destroy(&(*pool)->cond);
-            free((*pool)->threads);
-            free(*pool);
-            return -1;
-        }
-        ++(*pool)->curr_thread_count;
-    }
 
     return 0; // Успех
 }
@@ -147,7 +142,10 @@ bool thread_task_is_running(const struct thread_task *task) {
 int thread_task_join(struct thread_task *task, void **result) {
     if (task == NULL)
         return TPOOL_ERR_INVALID_ARGUMENT;
-
+    if (result == NULL)
+        return TPOOL_ERR_INVALID_ARGUMENT;
+    if (task->status != TASK_NOT_PUSHED)
+        return TPOOL_ERR_TASK_NOT_PUSHED;
     return 0;
 }
 

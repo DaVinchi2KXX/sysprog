@@ -112,58 +112,69 @@ static void execute_command(const struct command_line *line) {
 }
 
 
-
-
-
-
-
-static void
-execute_command_line(const struct command_line *line)
-{
-	assert(line != NULL);
+static void execute_command_line(const struct command_line *line) {
+    assert(line != NULL);
     const struct expr *e = line->head;
+
+    // Список для хранения PID запущенных фоновых процессов
+    pid_t bg_pids[32]; // Предполагаем, что одновременно может быть до 32 фоновых процессов
+    int bg_pid_count = 0;
+
     int pid = fork();
-    if (pid == 0) {
-    execute_command(line);
+    if (pid == -1) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    } else if (pid == 0) {
+        execute_command(line);
     } else {
-        if (!line->is_background) {
-            waitpid(pid, NULL, 0);
-        } else {
+        if (line->is_background) {
+            // Если команда запущена в фоновом режиме, сохраняем PID
+            bg_pids[bg_pid_count++] = pid;
             printf("Background process ID: %d\n", pid);
+        } else {
+            // Если команда запущена в основном режиме, ждем завершения
+            waitpid(pid, NULL, 0);
         }
     }
+
     printf("================================\n");
-	printf("Command line:\n");
-	printf("Is background: %d\n", (int)line->is_background);
-	printf("Output: ");
-	if (line->out_type == OUTPUT_TYPE_STDOUT) {
-		printf("stdout\n");
-	} else if (line->out_type == OUTPUT_TYPE_FILE_NEW) {
-		printf("new file - \"%s\"\n", line->out_file);
-	} else if (line->out_type == OUTPUT_TYPE_FILE_APPEND) {
-		printf("append file - \"%s\"\n", line->out_file);
-	} else {
-		assert(false);
-	}
-	printf("Expressions:\n");
+    printf("Command line:\n");
+    printf("Is background: %d\n", (int)line->is_background);
+    printf("Output: ");
+    if (line->out_type == OUTPUT_TYPE_STDOUT) {
+        printf("stdout\n");
+    } else if (line->out_type == OUTPUT_TYPE_FILE_NEW) {
+        printf("new file - \"%s\"\n", line->out_file);
+    } else if (line->out_type == OUTPUT_TYPE_FILE_APPEND) {
+        printf("append file - \"%s\"\n", line->out_file);
+    } else {
+        assert(false);
+    }
+    printf("Expressions:\n");
     while (e != NULL) {
-		if (e->type == EXPR_TYPE_COMMAND) {
-			printf("\tCommand: %s", e->cmd.exe);
-			for (uint32_t i = 0; i < e->cmd.arg_count; ++i)
-				printf(" %s", e->cmd.args[i]);
-			printf("\n");
-		} else if (e->type == EXPR_TYPE_PIPE) {
-			printf("\tPIPE\n");
-		} else if (e->type == EXPR_TYPE_AND) {
-			printf("\tAND\n");
-		} else if (e->type == EXPR_TYPE_OR) {
-			printf("\tOR\n");
-		} else {
-			assert(false);
-		}
-		e = e->next;
-	}
+        if (e->type == EXPR_TYPE_COMMAND) {
+            printf("\tCommand: %s", e->cmd.exe);
+            for (uint32_t i = 0; i < e->cmd.arg_count; ++i)
+                printf(" %s", e->cmd.args[i]);
+            printf("\n");
+        } else if (e->type == EXPR_TYPE_PIPE) {
+            printf("\tPIPE\n");
+        } else if (e->type == EXPR_TYPE_AND) {
+            printf("\tAND\n");
+        } else if (e->type == EXPR_TYPE_OR) {
+            printf("\tOR\n");
+        } else {
+            assert(false);
+        }
+        e = e->next;
+    }
+
+    // Дожидаемся завершения всех фоновых процессов
+    for (int i = 0; i < bg_pid_count; ++i) {
+        waitpid(bg_pids[i], NULL, 0);
+    }
 }
+
 
 int
 main(void)

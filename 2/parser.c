@@ -200,6 +200,20 @@ parse_token(const char *pos, const char *end, struct token *out)
 			}
 			goto append_and_next;
 		case '&':
+            // Если символ '&' встречается вне кавычек, он должен быть интерпретирован как отдельный токен типа AND
+            if (quote == 0) {
+                // Проверяем следующий символ
+                if (pos > begin && *(pos - 1) == '&') {
+                    // Если текущий и следующий символы '&' образуют последовательность '&&', то это '&&'
+                    out->type = TOKEN_TYPE_AND;
+                    return pos + 2 - begin; // Увеличиваем позицию на 2, чтобы пропустить оба символа '&'
+                } else if (*(pos - 1) == ' ' && *(pos + 1) == ' ') {
+                    // Иначе это просто отдельный символ '&'
+                    out->type = TOKEN_TYPE_BACKGROUND;
+                    return pos + 1 - begin;
+                }
+            }
+            goto append_and_next;
 		case '|':
 		case '>':
 			if (quote != 0)
@@ -358,7 +372,17 @@ parser_pop_next(struct parser *p, struct command_line **out)
 		case TOKEN_TYPE_OUT_NEW:
 		case TOKEN_TYPE_OUT_APPEND:
 		case TOKEN_TYPE_BACKGROUND:
-			goto close_and_return;
+            assert(line->tail != NULL);
+            parser_consume(p, pos - begin);
+            if (line->tail->type != EXPR_TYPE_COMMAND) {
+                res = PARSER_ERR_ENDS_NOT_WITH_A_COMMAND;
+                goto return_no_line;
+            }
+            /* Set background flag */
+            line->is_background = true;
+            res = PARSER_ERR_NONE;
+            *out = line;
+            return res;
 		default:
 			assert(false);
 		}

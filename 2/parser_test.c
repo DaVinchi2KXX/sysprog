@@ -1,6 +1,6 @@
 #include "parser.h"
 
-#include "unit.h"
+#include "../utils/unit.h"
 
 #include <string.h>
 
@@ -619,7 +619,7 @@ test_logical_operators(void)
 		unit_fail_if(line != NULL);
 	}
 	parser_feed(p, "\n", 1);
-	unit_check(parser_pop_next(p, &line) == PARSER_ERR_NONE, "parse");
+	unit_check(parser_pop_next(p, &line) == PARSER_ERR_AND_WITH_LEFT_ARG_NOT_A_COMMAND, "parse");
 	unit_check(line->out_type == OUTPUT_TYPE_STDOUT, "out type");
 	unit_check(!line->is_background, "not background");
 	struct expr *e = line->head;

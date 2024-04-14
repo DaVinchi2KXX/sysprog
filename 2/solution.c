@@ -19,7 +19,6 @@ void cmd_exit(const struct expr *e) {
     if (e->cmd.arg_count == 0) {
         exit(0);
     }
-
     exit(atoi(e->cmd.args[0]));
 }
 
@@ -73,10 +72,6 @@ static void execute_command(const struct command_line *line) {
 
                     waitpid(pid, NULL, 0);
                 }
-            } else if (e->cmd.exe != NULL && !strcmp(e->cmd.exe, "cmd_cd")) {
-                cmd_cd(e);
-            } else if (e->cmd.exe != NULL && !strcmp(e->cmd.exe, "exit")) {
-                return cmd_exit(e);
             } else if (e->cmd.exe != NULL) {
                 int output_fd;
 
@@ -122,14 +117,21 @@ execute_command_line(const struct command_line *line)
 {
 	assert(line != NULL);
     const struct expr *e = line->head;
-    int pid = fork();
-    if (pid == 0) {
-    execute_command(line);
+    if (line->head->cmd.exe != NULL && !strcmp(line->head->cmd.exe, "cd")) {
+        cmd_cd(line->head);
+    } else if (line->head->cmd.exe != NULL && !strcmp(line->head->cmd.exe, "exit")) {
+        cmd_exit(line->head);
     } else {
-        if (!line->is_background) {
-            waitpid(pid, NULL, 0);
+        int pid = fork();
+        if (pid == 0) {
+            execute_command(line);
+            exit(0);
         } else {
-            printf("Background process ID: %d\n", pid);
+            if (!line->is_background) {
+                waitpid(pid, NULL, 0);
+            } else {
+                printf("Background process ID: %d\n", pid);
+            }
         }
     }
     printf("================================\n");

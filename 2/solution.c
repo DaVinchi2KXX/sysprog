@@ -122,17 +122,7 @@ execute_command_line(const struct command_line *line)
     } else if (line->head->cmd.exe != NULL && !strcmp(line->head->cmd.exe, "exit")) {
         cmd_exit(line->head);
     } else {
-        int pid = fork();
-        if (pid == 0) {
             execute_command(line);
-            exit(0);
-        } else {
-            if (!line->is_background) {
-                waitpid(pid, NULL, 0);
-            } else {
-                printf("Background process ID: %d\n", pid);
-            }
-        }
     }
     printf("================================\n");
 	printf("Command line:\n");
